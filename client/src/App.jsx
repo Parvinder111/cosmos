@@ -3,21 +3,17 @@ import { useSocket } from './hooks/useSocket';
 import { useMovement } from './hooks/useMovement';
 import CosmosCanvas from './components/CosmosCanvas';
 import ChatPanel from './components/ChatPanel';
+import ZoneChatPanel from './components/ZoneChatPanel';
 import HUD from './components/HUD';
 import JoinScreen from './components/JoinScreen';
 import ProximityToast from './components/ProximityToast';
 
 export default function App() {
   const {
-    connected,
-    myUser,
-    users,
-    rooms,
-    activeRoom,
-    setActiveRoom,
-    sendMove,
-    sendMessage,
-    sendEmoji,
+    connected, myUser, users,
+    rooms, activeRoom, setActiveRoom,
+    zones, myZones, activeZone, setActiveZone,
+    sendMove, sendMessage, sendZoneMessage, sendEmoji,
   } = useSocket();
 
   const prevRoomsSize = useRef(0);
@@ -30,10 +26,8 @@ export default function App() {
 
   return (
     <div style={{ width: '100vw', height: '100vh', position: 'relative', overflow: 'hidden' }}>
-      {/* Loading screen */}
       <JoinScreen connected={connected} myUser={myUser} />
 
-      {/* Main canvas */}
       {myUser && (
         <CosmosCanvas
           myUser={myUser}
@@ -42,21 +36,23 @@ export default function App() {
           worldSize={myUser.worldSize}
           proximityRadius={myUser.proximityRadius}
           localPos={localPos}
+          zones={zones}
+          myZones={myZones}
         />
       )}
 
-      {/* HUD overlay */}
       {myUser && (
         <HUD
           myUser={myUser}
           users={users}
           rooms={rooms}
+          myZones={myZones}
           connected={connected}
           sendEmoji={sendEmoji}
         />
       )}
 
-      {/* Chat panel */}
+      {/* Proximity chat — bottom right */}
       {myUser && rooms.size > 0 && (
         <ChatPanel
           rooms={rooms}
@@ -67,7 +63,17 @@ export default function App() {
         />
       )}
 
-      {/* Proximity notification toasts */}
+      {/* Zone chat — bottom left */}
+      {myUser && myZones.size > 0 && (
+        <ZoneChatPanel
+          myZones={myZones}
+          activeZone={activeZone}
+          setActiveZone={setActiveZone}
+          myUser={myUser}
+          sendZoneMessage={sendZoneMessage}
+        />
+      )}
+
       {myUser && (
         <ProximityToast rooms={rooms} prevRoomsSize={prevRoomsSize} />
       )}

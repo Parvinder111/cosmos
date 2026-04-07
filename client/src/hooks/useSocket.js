@@ -7,9 +7,14 @@ export function useSocket() {
   const socketRef = useRef(null);
   const [connected, setConnected] = useState(false);
   const [myUser, setMyUser] = useState(null);
-  const [users, setUsers] = useState(new Map()); // socketId → user
-  const [rooms, setRooms] = useState(new Map()); // roomId → { peerId, peerName, peerColor, messages[] }
+  const [users, setUsers] = useState(new Map());
+  const [rooms, setRooms] = useState(new Map());
   const [activeRoom, setActiveRoom] = useState(null);
+
+  // Zone state
+  const [zones, setZones] = useState([]);                     // all zone definitions
+  const [myZones, setMyZones] = useState(new Map());          // zoneId → { zone, members[], messages[] }
+  const [activeZone, setActiveZone] = useState(null);         // currently open zone chat
 
   useEffect(() => {
     const socket = io(SERVER_URL, { transports: ['websocket'] });
@@ -18,28 +23,25 @@ export function useSocket() {
     socket.on('connect', () => setConnected(true));
     socket.on('disconnect', () => setConnected(false));
 
-    // My init
     socket.on('user:init', (user) => {
       setMyUser(user);
+      if (user.zones) setZones(user.zones);
     });
 
-    // Snapshot of existing users
     socket.on('users:snapshot', (existingUsers) => {
-      setUsers((prev) => {
+      setUsers(prev => {
         const next = new Map(prev);
-        existingUsers.forEach((u) => next.set(u.socketId, u));
+        existingUsers.forEach(u => next.set(u.socketId, u));
         return next;
       });
     });
 
-    // Someone joined
     socket.on('user:joined', (user) => {
-      setUsers((prev) => new Map(prev).set(user.socketId, user));
+      setUsers(prev => new Map(prev).set(user.socketId, user));
     });
 
-    // Someone moved
     socket.on('user:moved', ({ socketId, position }) => {
-      setUsers((prev) => {
+      setUsers(prev => {
         const next = new Map(prev);
         const u = next.get(socketId);
         if (u) next.set(socketId, { ...u, position });
@@ -47,18 +49,16 @@ export function useSocket() {
       });
     });
 
-    // Someone left
     socket.on('user:left', ({ socketId }) => {
-      setUsers((prev) => {
+      setUsers(prev => {
         const next = new Map(prev);
         next.delete(socketId);
         return next;
       });
     });
 
-    // Emoji update
     socket.on('user:emoji', ({ socketId, emoji }) => {
-      setUsers((prev) => {
+      setUsers(prev => {
         const next = new Map(prev);
         const u = next.get(socketId);
         if (u) next.set(socketId, { ...u, emoji });
@@ -66,39 +66,77 @@ export function useSocket() {
       });
     });
 
-    // Proximity connected
+    // ── Proximity ──────────────────────────────────────────────────────────
     socket.on('proximity:connect', ({ peerId, peerName, peerColor, roomId }) => {
-      setRooms((prev) => {
+      setRooms(prev => {
         const next = new Map(prev);
-        if (!next.has(roomId)) {
-          next.set(roomId, { peerId, peerName, peerColor, messages: [] });
-        }
+        if (!next.has(roomId)) next.set(roomId, { peerId, peerName, peerColor, messages: [] });
         return next;
       });
       setActiveRoom(roomId);
     });
 
-    // Proximity disconnected
     socket.on('proximity:disconnect', ({ peerId, roomId }) => {
-      setRooms((prev) => {
+      setRooms(prev => {
         const next = new Map(prev);
         next.delete(roomId);
         return next;
       });
-      setActiveRoom((cur) => (cur === roomId ? null : cur));
+      setActiveRoom(cur => cur === roomId ? null : cur);
     });
 
-    // Chat message
     socket.on('chat:message', (msg) => {
-      setRooms((prev) => {
+      setRooms(prev => {
         const next = new Map(prev);
         const room = next.get(msg.roomId);
-        if (room) {
-          next.set(msg.roomId, {
-            ...room,
-            messages: [...room.messages, msg].slice(-100),
-          });
-        }
+        if (room) next.set(msg.roomId, { ...room, messages: [...room.messages, msg].slice(-100) });
+        return next;
+      });
+    });
+
+    // ── Zones ──────────────────────────────────────────────────────────────
+    socket.on('zone:entered', ({ zone, members }) => {
+      setMyZones(prev => {
+        const next = new Map(prev);
+        const existing = next.get(zone.id);
+        next.set(zone.id, { zone, members, messages: existing?.messages || [] });
+        return next;
+      });
+      setActiveZone(zone.id);
+    });
+
+    socket.on('zone:left', ({ zoneId }) => {
+      setMyZones(prev => {
+        const next = new Map(prev);
+        next.delete(zoneId);
+        return next;
+      });
+      setActiveZone(cur => cur === zoneId ? null : cur);
+    });
+
+    socket.on('zone:member:joined', ({ zoneId, user, members }) => {
+      setMyZones(prev => {
+        const next = new Map(prev);
+        const z = next.get(zoneId);
+        if (z) next.set(zoneId, { ...z, members });
+        return next;
+      });
+    });
+
+    socket.on('zone:member:left', ({ zoneId, socketId, members }) => {
+      setMyZones(prev => {
+        const next = new Map(prev);
+        const z = next.get(zoneId);
+        if (z) next.set(zoneId, { ...z, members });
+        return next;
+      });
+    });
+
+    socket.on('zone:message', (msg) => {
+      setMyZones(prev => {
+        const next = new Map(prev);
+        const z = next.get(msg.zoneId);
+        if (z) next.set(msg.zoneId, { ...z, messages: [...z.messages, msg].slice(-100) });
         return next;
       });
     });
@@ -114,20 +152,19 @@ export function useSocket() {
     socketRef.current?.emit('chat:message', { roomId, text });
   }, []);
 
+  const sendZoneMessage = useCallback((zoneId, text) => {
+    socketRef.current?.emit('zone:message', { zoneId, text });
+  }, []);
+
   const sendEmoji = useCallback((emoji) => {
     socketRef.current?.emit('user:emoji', { emoji });
   }, []);
 
   return {
     socket: socketRef.current,
-    connected,
-    myUser,
-    users,
-    rooms,
-    activeRoom,
-    setActiveRoom,
-    sendMove,
-    sendMessage,
-    sendEmoji,
+    connected, myUser, users,
+    rooms, activeRoom, setActiveRoom,
+    zones, myZones, activeZone, setActiveZone,
+    sendMove, sendMessage, sendZoneMessage, sendEmoji,
   };
 }
