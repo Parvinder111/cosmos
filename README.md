@@ -1,101 +1,101 @@
-# 🌌 Cosmos — Proximity Social Space
+# 🌌 Cosmos — Proximity-Based Virtual Social Space
 
-A real-time 2D virtual environment where users move around and chat based on physical proximity. When you get close to someone, a chat channel opens. When you move away, it closes.
+> Move close to someone → chat opens. Walk away → chat closes.
+
+A real-time 2D virtual environment where users appear as avatars, move freely around a shared world, and automatically connect to chat when they enter each other's proximity radius — simulating natural, spatial conversations in a digital space.
 
 ---
 
 ## ✨ Features
 
-| Feature | Description |
-|---|---|
-| 🎮 **2D World** | Scrollable canvas rendered with PixiJS — stars, nebulae, grid |
-| 🧑‍🚀 **Avatars** | Colored circles with names, emoji customization |
-| 🔴 **Real-Time Sync** | Positions sync instantly via Socket.IO WebSockets |
-| 📡 **Proximity Detection** | 150px radius — enter → chat opens, leave → chat closes |
-| 💬 **Proximity Chat** | Auto-connects chat room when users are near each other |
-| 🏠 **Multi-Room** | Chat with multiple nearby users simultaneously via tabs |
-| 🌐 **REST API** | Health check + online user listing endpoints |
-| 🗄️ **MongoDB** | Optional persistence for sessions and messages |
+### Core
+- 🎮 **2D World** — Scrollable canvas rendered with PixiJS (WebGL), 2400×1600px
+- 🧑‍🚀 **Avatars** — Colored circles with names, emoji customization
+- 📡 **Real-Time Sync** — All user positions broadcast instantly via Socket.IO
+- 🔴 **Proximity Detection** — 150px radius; enter → chat opens, leave → chat closes
+- 💬 **Auto Chat** — Chat room created automatically on proximity, destroyed on exit
+
+### Bonus
+- 🏙️ **Named Zones** — 7 zones (Lounge, Meeting Room, Dev Corner, etc.) with shared group chat
+- 🏠 **Multi-Room Chat** — Tabs for multiple simultaneous proximity conversations
+- 🔔 **Toast Notifications** — Connect/disconnect alerts
+- 🌐 **REST API** — `/api/health` and `/api/users` endpoints
+- 🗄️ **MongoDB** — Optional session + message persistence
 
 ---
 
 ## 🛠️ Tech Stack
 
-### Frontend
-- **React 18** + **Vite** — component model + fast HMR
-- **PixiJS 7** — WebGL-accelerated 2D canvas rendering
-- **Tailwind CSS** — utility-first styling
-- **Socket.IO Client** — real-time WebSocket communication
+| Layer | Technology | Why |
+|---|---|---|
+| Frontend | React 18 + Vite | Component model, fast HMR |
+| Rendering | PixiJS 7 (WebGL) | GPU-accelerated, handles many moving avatars at 60fps |
+| Styling | Tailwind CSS | Utility-first, rapid UI |
+| Real-Time | Socket.IO | Built-in reconnection, rooms, named events |
+| Backend | Node.js + Express | Lightweight, non-blocking I/O |
+| Database | MongoDB + Mongoose | Optional — sessions and message history |
 
-### Backend
-- **Node.js** + **Express** — HTTP server + REST API
-- **Socket.IO** — bidirectional real-time events
-- **MongoDB** + **Mongoose** — optional session/message persistence
+> **Why PixiJS over DOM/CSS?** WebGL rendering doesn't trigger layout reflows. 20 moving avatars on plain DOM would cause jank. PixiJS stays smooth.
 
-> **Why PixiJS over plain Canvas/CSS?** PixiJS uses WebGL for hardware-accelerated rendering, handles hundreds of moving sprites efficiently, and provides a clean scene graph for layering effects (glow, rings, trails). For a 2D world with many concurrent users, it's significantly more performant than DOM-based approaches.
-
-> **Why Socket.IO over raw WebSockets?** Built-in reconnection, rooms, namespaces, and fallback transports. The room abstraction maps cleanly to proximity chat pairs.
+> **Why server-side proximity?** All distance checks run on the server so every client agrees on who is connected — no race conditions or fake positions.
 
 ---
 
-## 🚀 Quick Start
+## 🚀 Getting Started
 
 ### Prerequisites
 - Node.js 18+
 - npm 9+
-- MongoDB (optional — app works without it)
+- MongoDB (optional)
 
-### 1. Clone & Install
+### 1. Clone
 
 ```bash
-git clone https://github.com/your-username/cosmos.git
+git clone https://github.com/Parvinder111/cosmos.git
 cd cosmos
-
-# Install all dependencies at once
-npm run install:all
 ```
 
-### 2. Configure Environment
+### 2. Install
 
 ```bash
-# Server
-cp server/.env.example server/.env
+cd server && npm install && cd ..
+cd client && npm install && cd ..
+```
 
-# Client
+### 3. Configure
+
+```bash
+cp server/.env.example server/.env
 cp client/.env.example client/.env
 ```
 
-Edit `server/.env`:
+`server/.env`
 ```
 PORT=3001
 CLIENT_URL=http://localhost:5173
-MONGO_URI=mongodb://localhost:27017/cosmos   # optional
+MONGO_URI=           # optional
 ```
 
-Edit `client/.env`:
+`client/.env`
 ```
 VITE_SERVER_URL=http://localhost:3001
 ```
 
-### 3. Run Development
+### 4. Run
 
 ```bash
-# Start both server + client with one command
 npm run dev
 ```
 
-Or run them separately:
-```bash
-# Terminal 1 — server (port 3001)
-cd server && npm run dev
+| Service | URL |
+|---|---|
+| Frontend | http://localhost:5173 |
+| Backend | http://localhost:3001 |
 
-# Terminal 2 — client (port 5173)
-cd client && npm run dev
-```
+### 5. Test Multiplayer
 
-### 4. Open the App
-
-Open **http://localhost:5173** in multiple browser tabs or windows to simulate multiple users.
+Open **two browser windows** side by side at `http://localhost:5173`.
+Each tab = a separate user. Move them close with WASD to trigger chat.
 
 ---
 
@@ -108,155 +108,103 @@ Open **http://localhost:5173** in multiple browser tabs or windows to simulate m
 | `A` / `←` | Move left |
 | `D` / `→` | Move right |
 
-Move close to another user to open a chat. Move away to close it.
-
 ---
 
-## 🌐 API Reference
-
-| Endpoint | Method | Description |
-|---|---|---|
-| `/api/health` | GET | Server status, user count, room count, uptime |
-| `/api/users` | GET | List of all currently online users |
-
----
-
-## 📡 Socket.IO Events
-
-### Client → Server
-
-| Event | Payload | Description |
-|---|---|---|
-| `user:move` | `{ x, y }` | Broadcast new position |
-| `chat:message` | `{ roomId, text }` | Send message to proximity room |
-| `user:emoji` | `{ emoji }` | Update avatar emoji |
-
-### Server → Client
-
-| Event | Payload | Description |
-|---|---|---|
-| `user:init` | `UserState + worldSize + proximityRadius` | Your initial state on join |
-| `users:snapshot` | `UserState[]` | All currently online users |
-| `user:joined` | `UserState` | New user entered the world |
-| `user:moved` | `{ socketId, position }` | Another user moved |
-| `user:left` | `{ socketId }` | User disconnected |
-| `user:emoji` | `{ socketId, emoji }` | Someone changed their emoji |
-| `proximity:connect` | `{ peerId, peerName, peerColor, roomId }` | Entered proximity range |
-| `proximity:disconnect` | `{ peerId, roomId }` | Left proximity range |
-| `chat:message` | `MessageObject` | New chat message in a room |
-
----
-
-## 🗺️ Project Structure
+## 📁 Project Structure
 
 ```
 cosmos/
 ├── server/
-│   ├── index.js          # Express + Socket.IO server
+│   ├── index.js          # Express + Socket.IO + proximity + zone logic
 │   ├── package.json
 │   └── .env.example
 ├── client/
 │   ├── src/
 │   │   ├── components/
-│   │   │   ├── CosmosCanvas.jsx   # PixiJS world renderer
-│   │   │   ├── ChatPanel.jsx      # Proximity chat UI
-│   │   │   ├── HUD.jsx            # Heads-up display overlay
-│   │   │   ├── JoinScreen.jsx     # Loading / splash screen
-│   │   │   └── ProximityToast.jsx # Connect/disconnect notifications
+│   │   │   ├── CosmosCanvas.jsx   # PixiJS world renderer + zones
+│   │   │   ├── ChatPanel.jsx      # Proximity 1-on-1 chat
+│   │   │   ├── ZoneChat.jsx       # Zone group chat
+│   │   │   ├── HUD.jsx            # Stats overlay
+│   │   │   ├── JoinScreen.jsx     # Loading splash
+│   │   │   └── ProximityToast.jsx # Alerts
 │   │   ├── hooks/
-│   │   │   ├── useSocket.js       # Socket.IO state management
-│   │   │   └── useMovement.js     # Keyboard movement + RAF loop
+│   │   │   ├── useSocket.js       # Socket.IO state + zone events
+│   │   │   └── useMovement.js     # Keyboard input + RAF loop
 │   │   ├── App.jsx
-│   │   ├── main.jsx
-│   │   └── index.css
-│   ├── index.html
-│   ├── vite.config.js
-│   ├── tailwind.config.js
-│   └── package.json
-├── package.json           # Root — monorepo scripts
-└── README.md
+│   │   └── main.jsx
+│   └── vite.config.js
+└── package.json
 ```
 
 ---
 
-## 🔧 System Design
+## 📡 Socket Events
 
-### Proximity Detection Algorithm
+### Client → Server
+| Event | Payload | Description |
+|---|---|---|
+| `user:move` | `{ x, y }` | Broadcast position |
+| `chat:message` | `{ roomId, text }` | Send proximity message |
+| `zone:message` | `{ zoneId, text }` | Send zone group message |
+| `user:emoji` | `{ emoji }` | Update avatar emoji |
 
-The server runs O(n) proximity checks on every `user:move` event:
+### Server → Client
+| Event | Description |
+|---|---|
+| `user:init` | Your state + world config + zones |
+| `proximity:connect` | Entered someone's radius |
+| `proximity:disconnect` | Left someone's radius |
+| `zone:entered` | You walked into a named zone |
+| `zone:left` | You walked out of a zone |
+| `zone:message` | New zone group message |
+
+---
+
+## 🔧 Proximity Algorithm
 
 ```
+On every user:move event (server-side):
+
 for each other user:
-  distance = √((x₁-x₂)² + (y₁-y₂)²)
-  if distance < PROXIMITY_RADIUS (150px):
-    if not already connected → emit proximity:connect
-  else:
-    if connected → emit proximity:disconnect
+  distance = √( (x₁-x₂)² + (y₁-y₂)² )
+
+  if distance < 150px AND not connected → open chat room
+  if distance ≥ 150px AND connected    → close chat room
+
+Room ID = [socketIdA, socketIdB].sort().join(':')
 ```
 
-Room IDs are deterministic: `[socketIdA, socketIdB].sort().join(':')` — guarantees both users reference the same room regardless of who moved.
+---
 
-### State Architecture
+## 🌐 API Endpoints
 
-```
-Server (in-memory)
-├── users: Map<socketId, UserState>     ← positions, colors, names
-└── rooms: Map<roomId, Set<socketId>>   ← active proximity pairs
+| Endpoint | Description |
+|---|---|
+| `GET /api/health` | Server status, user count, uptime |
+| `GET /api/users` | All online users with positions |
+| `GET /api/zones` | Zones with current member counts |
 
-Client (React state)
-├── myUser          ← own socket ID, color, name, position
-├── users: Map      ← other users' positions (updated via sockets)
-├── rooms: Map      ← active chat rooms + message history
-└── localPos: ref   ← smooth local position (not waiting for server echo)
-```
+---
 
-### Latency Strategy
+## 🏙️ Named Zones
 
-Local position is tracked in a `useRef` (not state) and updated at 60fps via `requestAnimationFrame`. Server updates are sent on each RAF tick but the canvas renders from the local ref immediately — so movement feels instant even with network latency.
+Walk into any zone to join its group chat:
+
+☕ Lounge · 📋 Meeting Room · 💻 Dev Corner · 🎮 Chill Zone · 🎨 Design Studio · 📚 Library · 🌙 Rooftop
 
 ---
 
 ## 🚢 Deployment
 
-### Server (Railway / Render / Fly.io)
-```bash
-cd server
-npm start
-```
-Set env vars: `PORT`, `CLIENT_URL`, `MONGO_URI`
+**Backend → Render.com**
+- Root Directory: `server/`
+- Start Command: `node index.js`
+- Env vars: `PORT`, `CLIENT_URL`, `MONGO_URI`
 
-### Client (Vercel / Netlify)
-```bash
-cd client
-npm run build
-# Deploy the dist/ folder
-```
-Set env var: `VITE_SERVER_URL=https://your-server.com`
-
-### Docker (optional)
-```dockerfile
-# Server
-FROM node:18-alpine
-WORKDIR /app
-COPY server/package*.json ./
-RUN npm ci
-COPY server/ .
-EXPOSE 3001
-CMD ["node", "index.js"]
-```
-
----
-
-## 🔮 Bonus Features Implemented
-
-- **Multi-room chat** — tabs appear when connected to multiple nearby users simultaneously
-- **Emoji avatars** — click "Change avatar" to pick an emoji displayed on your circle
-- **Camera follows player** — smooth viewport interpolation keeps you centered
-- **Proximity ring** — your 150px detection radius is rendered as a subtle circle
-- **Connection line** — a line draws between you and connected users
-- **Online count** — real-time count of users in the world
-- **Proximity toast** — notification when someone enters/leaves your range
-- **MongoDB persistence** — sessions and messages saved when configured
+**Frontend → Vercel**
+- Root Directory: `client/`
+- Framework: Vite
+- Env var: `VITE_SERVER_URL=https://your-render-url.onrender.com`
 
 ---
 
